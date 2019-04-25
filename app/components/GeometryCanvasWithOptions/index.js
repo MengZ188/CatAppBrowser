@@ -15,8 +15,10 @@ import _ from 'lodash';
 
 import { withStyles } from 'material-ui/styles';
 import Modal from 'material-ui/Modal';
+import Hidden from 'material-ui/Hidden';
 import Grid from 'material-ui/Grid';
 import Button from 'material-ui/Button';
+import Switch from 'material-ui/Switch';
 import IconButton from 'material-ui/IconButton';
 import Tooltip from 'material-ui/Tooltip';
 import Dialog, { DialogTitle } from 'material-ui/Dialog';
@@ -28,74 +30,22 @@ import { apiRoot } from 'utils/constants';
 import GeometryCanvasCifdata from 'components/GeometryCanvasCifdata';
 
 import * as actions from './actions';
+import { styles } from './styles';
 
 export const outputFormats = ['abinit', 'castep-cell', 'cfg', 'cif', 'dlp4', 'eon', 'espresso-in', 'extxyz', 'findsym',
   'gen', 'gromos', 'json', 'jsv', 'nwchem', 'proteindatabank', 'py', 'turbomole', 'v-sim', 'vasp', 'xsf', 'xyz'];
 
-
-const styles = (theme) => ({
-  avatar: {
-    fontColor: '#000000',
-    fontSize: 18,
-    backgroundColor: '#ffffff',
-    marginLeft: -14,
-    marginRight: -14,
-    marginTop: -5,
-    textTranformation: 'none',
-    [theme.breakpoints.down('sm')]: {
-      fontSize: 12,
-    },
-  },
-  button: {
-    margin: theme.spacing.unit,
-  },
-  fsIconButton: {
-    fontColor: '#000000',
-    backgroundColor: '#ffffff',
-    marginTop: theme.spacing.unit,
-    [theme.breakpoints.down('sm')]: {
-      fontSize: 12,
-      height: 15,
-      width: 15,
-    },
-    [theme.breakpoints.down('xs')]: {
-      fontSize: 12,
-      height: 10,
-      width: 10,
-    },
-  },
-  iconButton: {
-    fontColor: '#000000',
-    backgroundColor: '#ffffff',
-    [theme.breakpoints.down('sm')]: {
-      fontSize: 12,
-      height: 15,
-      width: 15,
-    },
-    [theme.breakpoints.down('xs')]: {
-      fontSize: 12,
-      height: 10,
-      width: 10,
-    },
-  },
-  iconButtonIcon: {
-    fontColor: '#000000',
-    backgroundColor: '#ffffff',
-    marginTop: 7,
-  },
-});
-
 const initialState = {
   open: false,
-  height: Math.max(Math.min(window.innerWidth * 0.5, 600), 300),
-  width: Math.max(Math.min(window.innerWidth * 0.5, 600), 300),
+  height: Math.max(Math.min(window.innerWidth * 0.5, 200), 300),
+  width: Math.max(Math.min(window.innerWidth * 0.5, 200), 300),
   color: '#fff',
   x: 2,
   y: 2,
   z: 1,
   borderWidth: 0,
   altLabels: {},
-  perspective: true,
+  stereographic: false,
   tiltToRotate: true,
   in: false,
   downloadOpen: false,
@@ -277,6 +227,23 @@ class GeometryCanvasWithOptions extends React.Component { // eslint-disable-line
                 </div>
               </Grid>
               <Grid item>
+                <Tooltip title="Switch projection: stereographic vs orthographic">
+                  <Switch
+                    value="stereographic"
+                    checked={this.state.stereographic}
+                    onClick={() => {
+                      this.props.setStereographic(
+                        !this.state.stereographic
+                      );
+                      this.setState({
+                        stereographic: !this.state.stereographic,
+                      });
+                    }}
+                  >
+                  </Switch>
+                </Tooltip>
+              </Grid>
+              <Grid item>
                 <Grid container direction="row" justify="flex-end">
                   <Grid item>
                     <Tooltip title="Exit fullscreen.">
@@ -303,6 +270,7 @@ class GeometryCanvasWithOptions extends React.Component { // eslint-disable-line
               width={window.innerWidth}
               rotationMatrix={this.props.rotationMatrix}
               setRotationMatrix={this.props.setRotationMatrix}
+              perspective={this.state.stereographic}
               parent={this}
             />
           </div>
@@ -314,9 +282,13 @@ class GeometryCanvasWithOptions extends React.Component { // eslint-disable-line
           x={this.state.x}
           y={this.state.y}
           z={this.state.z}
+          height={this.props.height}
+          width={this.props.width}
           setRotationMatrix={this.props.setRotationMatrix}
+          perspective={this.state.stereographic}
           parent={this}
         />
+        {this.props.showButtons === false ? null :
         <Grid
           container
           direction="row"
@@ -397,6 +369,25 @@ class GeometryCanvasWithOptions extends React.Component { // eslint-disable-line
               </Grid>
             </Grid>
           </Grid>
+          <Hidden smDown>
+            <Grid item>
+              <Tooltip title="Switch projection: stereographic vs orthographic">
+                <Switch
+                  value="stereographic"
+                  checked={this.state.stereographic}
+                  onClick={() => {
+                    this.props.setStereographic(
+                    !this.state.stereographic
+                  );
+                    this.setState({
+                      stereographic: !this.state.stereographic,
+                    });
+                  }}
+                >
+                </Switch>
+              </Tooltip>
+            </Grid>
+          </Hidden>
           <Grid>
             <Grid container direction="row">
               <Grid item>
@@ -443,7 +434,7 @@ class GeometryCanvasWithOptions extends React.Component { // eslint-disable-line
             </Grid>
           </Grid>
         </Grid>
-
+        }
       </div>
     );
   }
@@ -451,6 +442,9 @@ class GeometryCanvasWithOptions extends React.Component { // eslint-disable-line
 
 GeometryCanvasWithOptions.defaultProps = {
   extraSlug: '',
+  showButtons: true,
+  height: 600,
+  width: 600,
 };
 
 GeometryCanvasWithOptions.propTypes = {
@@ -463,12 +457,15 @@ GeometryCanvasWithOptions.propTypes = {
   xRepeat: PropTypes.number,
   yRepeat: PropTypes.number,
   zRepeat: PropTypes.number,
+  width: PropTypes.number,
+  height: PropTypes.number,
   rotationMatrix: PropTypes.array,
-
   setXRepeat: PropTypes.func,
   setYRepeat: PropTypes.func,
   setZRepeat: PropTypes.func,
   setRotationMatrix: PropTypes.func,
+  setStereographic: PropTypes.func,
+  showButtons: PropTypes.bool,
 };
 
 const mapStateToProps = (state) => ({
@@ -477,9 +474,13 @@ const mapStateToProps = (state) => ({
   zRepeat: state.get('geometryCanvasReducer').zRepeat,
   rotationMatrix: state.get('geometryCanvasReducer').rotationMatrix,
   canvas: state.get('geometryCanvasReducer').canvas,
+  stereographic: state.get('geometryCanvasReducer').stereographic,
 });
 
 const mapDispatchToProps = (dispatch) => ({
+  setStereographic: (x) => {
+    dispatch(actions.setStereographic(x));
+  },
   setXRepeat: (x) => {
     dispatch(actions.setXRepeat(x));
   },

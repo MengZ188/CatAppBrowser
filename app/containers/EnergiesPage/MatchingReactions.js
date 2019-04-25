@@ -34,6 +34,7 @@ import FaCube from 'react-icons/lib/fa/cube';
 
 import cachios from 'cachios';
 import { newGraphQLRoot } from 'utils/constants';
+import { withCommas } from 'utils/functions';
 
 import GraphQlbutton from 'components/GraphQlbutton';
 import * as snackbarActions from 'containers/AppSnackBar/actions';
@@ -60,7 +61,7 @@ const styles = (theme) => ({
   paper: {
     marginTop: theme.spacing.unit,
     marginBottom: theme.spacing.unit,
-    padding: theme.spacing.unit,
+    padding: theme.spacing.unit * 2,
 
   },
   li: {
@@ -101,108 +102,10 @@ class MatchingReactions extends React.Component { // eslint-disable-line react/p
     };
   }
 
-  fetchRow(reaction) {
-    this.setState({
-      loading: true,
-    });
-    let catappIds;
-    if (typeof reaction.reactionSystems !== 'undefined' && reaction.reactionSystems !== null) {
-      catappIds = (reaction.reactionSystems.map((x) => x.aseId));
-    } else {
-      catappIds = {};
-      this.setState({
-        loading: false,
-      });
-      snackbarActions.open('Scroll down for detailed structure.');
-    }
-
-    const pubQuery = {
-      query: `{publications(pubId: "${reaction.pubId}"){
-      edges {
-      node
-      {
-        year
-        doi
-        authors
-        title
-        number
-        journal
-        pages
-      }}
-      }
-      }
-      `,
-    };
-    cachios.post(newGraphQLRoot, pubQuery).then((response) => {
-      this.props.savePublication(response.data.data.publications.edges[0].node);
-    });
-
-    this.props.clearSystems();
-    catappIds.map((key) => {
-      let aseId = key;
-      if (typeof aseId === 'object') {
-        aseId = aseId[1];
-      }
-      const query = {
-        query: `query{systems(uniqueId: "${aseId}") {
-  edges {
-    node {
-      Formula
-      energy
-      Cifdata
-      volume
-      mass
-      Facet
-      publication {
-        year
-        doi
-        authors
-        title
-        number
-        journal
-        pages
-      }
-    }
-  }
-}}`,
-        ttl: 300,
-      };
-      return cachios.post(newGraphQLRoot, query).then((response) => {
-        Scroll.animateScroll.scrollMore(900);
-        const node = response.data.data.systems.edges[0].node;
-        node.DFTCode = reaction.dftCode;
-        node.DFTFunctional = reaction.dftFunctional;
-        node.aseId = aseId;
-        node.key = key
-          .replace(/.*TSstar/g, '‡')
-          .replace(/(.*)gas/g, (match, p1) => `${p1}(ℊ)`)
-          .replace(/(.+)star/, (match, p1) => `${p1}/${reaction.surfaceComposition}`)
-          .replace(/star/, reaction.surfaceComposition);
-
-        node.full_key = node.Formula;
-        if (typeof node.Facet !== 'undefined' && node.Facet !== '' && node.Facet !== null) {
-          node.full_key = `${node.full_key} [${node.Facet}]`;
-        }
-        if (node.key.indexOf('(ℊ)') > -1) {
-          node.full_key = `Molecule ${node.full_key}`;
-        } else {
-          node.full_key = `Surface ${node.full_key}`;
-        }
-
-        this.props.saveSystem(node);
-        this.setState({
-          loading: false,
-        });
-      }).catch(() => {
-        this.setState({
-          loading: false,
-        });
-      });
-    });
-  }
   handlePageChange = (event, page) => {
     this.setState({ page });
   };
+
   handleChangeRowsPerPage = (event) => {
     this.setState({ rowsPerPage: event.target.value });
   };
@@ -221,6 +124,104 @@ class MatchingReactions extends React.Component { // eslint-disable-line react/p
     });
   }
 
+  fetchRow(reaction) {
+    this.setState({
+      loading: true,
+    });
+    this.props.saveLoading(true);
+    let cathubIds;
+    let cathubNames;
+    let catenergyCorrections;
+    if (typeof reaction.reactionSystems !== 'undefined' && reaction.reactionSystems !== null) {
+      cathubIds = (reaction.reactionSystems.map((x) => x.aseId));
+      cathubNames = (reaction.reactionSystems.map((x) => x.name));
+      catenergyCorrections = (reaction.reactionSystems.map((x) => x.energyCorrection));
+    } else {
+      cathubIds = {};
+      snackbarActions.open('Scroll down for detailed structure.');
+    }
+
+    const pubQuery = {
+      query: `{publications(pubId: "${reaction.pubId}"){
+    edges {
+      node {
+        year
+        doi
+        authors
+        title
+        number
+        journal
+        pages
+        pubId
+      }
+    }
+  }}`,
+    };
+    cachios.post(newGraphQLRoot, pubQuery).then((response) => {
+      this.props.savePublication(response.data.data.publications.edges[0].node);
+    });
+
+    this.props.clearSystems();
+    cathubIds.map((key, index) => {
+      let aseId = key;
+      const name = cathubNames[index];
+      const energyCorrection = catenergyCorrections[index];
+      if (typeof aseId === 'object') {
+        aseId = aseId[1];
+      }
+      const query = {
+        query: `query{systems(uniqueId: "${aseId}") {
+  edges {
+    node {
+      Formula
+      energy
+      calculatorParameters
+      Cifdata
+      volume
+      mass
+    }
+  }
+}}`,
+        ttl: 300,
+      };
+      return cachios.post(newGraphQLRoot, query).then((response) => {
+        Scroll.animateScroll.scrollMore(900);
+        const node = response.data.data.systems.edges[0].node;
+        node.DFTCode = reaction.dftCode;
+        node.DFTFunctional = reaction.dftFunctional;
+        node.Facet = reaction.facet;
+        node.publication = this.props.publication;
+        node.aseId = aseId;
+        node.energyCorrection = energyCorrection;
+        node.key = name;
+        node.full_key = node.Formula;
+        const ads = name.replace('star', ' @');
+        if (name.indexOf('gas') !== -1) {
+          node.full_key = `Gas phase ${node.full_key}`;
+        } else if (name.indexOf('bulk') !== -1) {
+          node.full_key = `Bulk ${node.full_key}`;
+        } else {
+          if (name === 'star') {
+            node.full_key = `Surface ${reaction.chemicalComposition}`;
+          } else {
+            node.full_key = `${ads} ${reaction.chemicalComposition}`;
+          }
+          if (typeof node.Facet !== 'undefined' && node.Facet !== '' && node.Facet !== null) {
+            node.full_key = `${node.full_key} [${node.Facet}]`;
+          }
+        }
+        this.props.saveSystem(node);
+        this.setState({
+          loading: false,
+        });
+      }).catch(() => {
+        this.setState({
+          loading: false,
+        });
+        this.props.saveLoading(false);
+      });
+    });
+  }
 
   render() {
     if (this.props.matchingReactions.length === 0) {
@@ -235,9 +236,8 @@ class MatchingReactions extends React.Component { // eslint-disable-line react/p
             <Paper className={this.props.classes.paper}>
               <Grid container direction="row" justify="center">
                 <Grid item>
-                  <h2>Ooops! :-(</h2>
+                  <h2>No reaction energies found!</h2>
                   <div className={this.props.classes.emptyText}>
-                    No reaction energies found.
                     Here are a couple of things you could try.
                     <ul>
                       <li className={this.props.classes.li}>
@@ -324,7 +324,7 @@ class MatchingReactions extends React.Component { // eslint-disable-line react/p
     return (
       <Paper className={this.props.classes.paper}>
         <div>
-          <h2>Matching Reactions ({this.props.resultSize})</h2>
+          <h2>Matching Reactions ({withCommas(this.props.resultSize)})</h2>
           <Table>
             <TableHead>
               <TableRow>
@@ -381,6 +381,15 @@ class MatchingReactions extends React.Component { // eslint-disable-line react/p
                     </TableSortLabel>
                   </TableCell>
                 </Hidden>
+                <TableCell>
+                  <TableSortLabel
+                    active={this.props.orderBy === 'dftFunctional'}
+                    direction={this.props.order}
+                    onClick={this.createSortHandler('dftFunctional')}
+                  >
+                    <div>XC Functional</div>
+                  </TableSortLabel>
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -412,6 +421,7 @@ class MatchingReactions extends React.Component { // eslint-disable-line react/p
                         <Hidden smDown>
                           <TableCell>{result.node.sites}</TableCell>
                         </Hidden>
+                        <TableCell>{`${result.node.dftFunctional}/${result.node.dftCode}` || ''}</TableCell>
                       </TableRow>
 
                     );
@@ -450,6 +460,7 @@ MatchingReactions.propTypes = {
   clearSystems: PropTypes.func.isRequired,
   saveSystem: PropTypes.func.isRequired,
   savePublication: PropTypes.func.isRequired,
+  saveLoading: PropTypes.func.isRequired,
   matchingReactions: PropTypes.array.isRequired,
   searchSubmitted: PropTypes.bool,
   searchParams: PropTypes.object,
@@ -460,6 +471,7 @@ MatchingReactions.propTypes = {
   handleRequestSort: PropTypes.func,
   order: PropTypes.string,
   orderBy: PropTypes.string,
+  publication: PropTypes.object,
 };
 
 MatchingReactions.defaultProps = {
@@ -468,6 +480,7 @@ MatchingReactions.defaultProps = {
 };
 
 const mapStateToProps = (state) => ({
+  loading: state.get('energiesPageReducer').loading,
   filter: state.get('energiesPageReducer').filter,
   matchingReactions: state.get('energiesPageReducer').matchingReactions,
   searchSubmitted: state.get('energiesPageReducer').searchSubmitted,
@@ -501,6 +514,9 @@ const mapDispatchToProps = (dispatch) => ({
   },
   savePublication: (x) => {
     dispatch(actions.savePublication(x));
+  },
+  saveLoading: (x) => {
+    dispatch(actions.saveLoading(x));
   },
   handleRequestSort: (event, property) => {
     dispatch(actions.handleRequestSort(event, property));

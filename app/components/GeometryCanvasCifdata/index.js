@@ -21,15 +21,11 @@ import { withCookies, Cookies } from 'react-cookie';
 import { isMobile } from 'react-device-detect';
 
 import * as actions from 'components/GeometryCanvasWithOptions/actions';
+import { styles } from './styles';
 
 const jQuery = require('jquery');
 window.jQuery = jQuery;
 const { ChemDoodle } = require('utils/ChemDoodleWeb'); // eslint-disable-line no-unused-vars
-const styles = (theme) => ({
-  button: {
-    margin: theme.spacing.unit,
-  },
-});
 
 const initialState = {
   rotationMatrix: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1.3],
@@ -106,7 +102,7 @@ function _load_lib(url, callback){
   tfcanvas_${this.props.uniqueId}.specs.set3DRepresentation('Ball and Stick');
 
   tfcanvas_${this.props.uniqueId}.specs.backgroundColor = '${this.props.color}';
-  tfcanvas_${this.props.uniqueId}.specs.projectionPerspective_3D = ${this.state.perspective};
+  tfcanvas_${this.props.uniqueId}.specs.projectionPerspective_3D = ${this.props.perspective};
   tfcanvas_${this.props.uniqueId}.specs.compass_display = true;
   tfcanvas_${this.props.uniqueId}.specs.compass_size_3D = 50;
   tfcanvas_${this.props.uniqueId}.specs.atoms_displayLabels_3D = true;

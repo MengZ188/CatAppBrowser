@@ -11,6 +11,7 @@ import _ from 'lodash';
 
 import { MdChevronLeft, MdChevronRight } from 'react-icons/lib/md';
 import { isMobileOnly } from 'react-device-detect';
+import Helmet from 'react-helmet';
 
 import { withStyles } from 'material-ui/styles';
 import Stepper, { Step, StepLabel } from 'material-ui/Stepper';
@@ -121,6 +122,11 @@ export class CatKitDemo extends React.Component { // eslint-disable-line react/p
 
     return (
       <div>
+        <Helmet>
+          <title>CatKit Generator Demo</title>
+          <meta name="description" content="CatKit Generator Demo is a GUI which demonstrates show CatKit can be used to create slab geometries with adsorbates in high-symmetry sites." />
+          <meta name="keywords" content="catkit, adsorption, slab generator, surface slab, adsorbates, catalysis, miller index, high symmetry sites, constraints, adsorption energies, density functional theory, input files" />
+        </Helmet>
         <div >
           <div className={this.props.classes.header} >
             <CatKitDemoHeader {...this.props} />
@@ -148,7 +154,8 @@ export class CatKitDemo extends React.Component { // eslint-disable-line react/p
               <Grid item>
                 <Button
                   className={this.props.classes.button}
-                  disabled={activeStep === 0}
+                  disabled={activeStep === 0 ||
+                      (activeStep === 2 && _.isEmpty(this.props.slabParams))}
                   onClick={this.handleBack}
                 >
                   <MdChevronLeft /> Back
@@ -181,6 +188,7 @@ CatKitDemo.propTypes = {
   stepperHandleNext: PropTypes.func,
   stepperHandleBack: PropTypes.func,
   stepperHandleReset: PropTypes.func,
+  slabParams: PropTypes.object,
 };
 
 const mapDispatchToProps = (dispatch) => ({

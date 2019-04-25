@@ -9,8 +9,15 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import ReactGA from 'react-ga';
 import Grid from 'material-ui/Grid';
+import {
+  FaExternalLink,
+} from 'react-icons/lib/fa';
+import {
+  prettyPrintReference,
+} from 'utils/functions';
 
 import GeometryCanvasWithOptions from 'components/GeometryCanvasWithOptions';
+import GraphQlbutton from 'components/GraphQlbutton';
 
 const initialState = {
   Formula: '',
@@ -24,6 +31,7 @@ const initialState = {
   PublicationNumber: '',
   PublicationJournal: '',
   PublicationPages: '',
+  PublicationPubId: '',
   DftCode: '',
   DftFunctional: '',
 };
@@ -32,15 +40,38 @@ class SingleStructureView extends React.Component { // eslint-disable-line react
   constructor(props) {
     super(props);
     this.state = initialState;
+    this.state.printquery = `query{systems( uniqueId: "${this.props.selectedSystem.aseId}" ) {
+  edges {
+    node {
+      Formula
+      energy
+      numbers
+      initialMagmoms
+      magmoms
+      magmom
+      charges
+      momenta
+      calculator
+      keyValuePairs
+      calculatorParameters
+      publication {
+        title
+        authors
+        doi
+      }
+    }
+  }
+}}`;
   }
   render() {
     const energy = this.props.selectedSystem.energy || this.state.energy || 0.0;
-
     let x;
     let y;
     let z;
-    if (Object.prototype.hasOwnProperty.call(this.props.selectedSystem, 'full_key') && this.props.selectedSystem.full_key.startsWith('Molec')) {
+    if (Object.prototype.hasOwnProperty.call(this.props.selectedSystem, 'full_key') && this.props.selectedSystem.full_key.startsWith('Gas')) {
       [x, y, z] = [1, 1, 1];
+    } else if (Object.prototype.hasOwnProperty.call(this.props.selectedSystem, 'full_key') && this.props.selectedSystem.full_key.startsWith('Bulk')) {
+      [x, y, z] = [2, 2, 2];
     } else {
       [x, y, z] = [2, 2, 1];
     }
@@ -49,7 +80,7 @@ class SingleStructureView extends React.Component { // eslint-disable-line react
       <div>
         {this.props.selectedUUID === '' ? null :
         <div>
-          <h2>{this.props.selectedSystem.full_key}</h2>
+          <h2 style={{ textAlign: 'center' }}>{this.props.selectedSystem.full_key}</h2>
           <Grid container direction="row" justify="space-around">
             <Grid item>
               <GeometryCanvasWithOptions
@@ -60,29 +91,38 @@ class SingleStructureView extends React.Component { // eslint-disable-line react
               />
             </Grid>
           </Grid>
-          <ul>
+          <ul style={{ width: '50%' }}>
             <li>Formula: {this.props.selectedSystem.Formula}</li>
-            <li>Total Energy: {energy.toFixed(2)} eV</li>
+            <li>DFT Total Energy: {energy.toFixed(2)} eV</li>
+            {this.props.selectedSystem.energyCorrection !== 0 &&
+              <li> Energy correction: {this.props.selectedSystem.energyCorrection}</li>
+            }
             <li>DFT Code: {this.props.selectedSystem.DFTCode}</li>
             <li>DFT Functional: {this.props.selectedSystem.DFTFunctional}</li>
-            <li>{`Title: "${this.props.selectedSystem.publication[0].title}"`}</li>
-            <li>Authors: {typeof this.props.selectedSystem.publication === 'undefined' || this.props.selectedSystem.publication === '' ? null :
-                    JSON.parse(this.props.selectedSystem.publication[0].authors).join('; ').replace('\\o', 'ø')}</li>
-            <li>Year: {this.props.selectedSystem.publication[0].year}</li>
-            {_.isEmpty(this.props.selectedSystem.publication[0].doi) ? null :
+            <li>Publication: {prettyPrintReference(this.props.selectedPublication)}</li>
             <div>
-              <li>
+              {_.isEmpty(this.props.selectedPublication.doi) ? null :
+              <div>
+                <li>
                           Source&nbsp;
                           <ReactGA.OutboundLink
-                            eventLabel={`http://dx.doi.org/${this.props.selectedSystem.publication[0].doi}`}
-                            to={`http://dx.doi.org/${this.props.selectedSystem.publication[0].doi}`}
+                            eventLabel={`http://dx.doi.org/${this.props.selectedPublication.doi}`}
+                            to={`http://dx.doi.org/${this.props.selectedPublication.doi}`}
                             target="_blank"
                           >
-                            DOI: {this.props.selectedSystem.publication[0].doi}
+                            DOI: {this.props.selectedPublication.doi} <FaExternalLink />
                           </ReactGA.OutboundLink>
-              </li>
+                </li>
+              </div>
+              }
             </div>
-                  }
+            <li> <a href={`/publications/${this.props.selectedPublication.pubId}`}>
+                View all reactions in dataset
+                </a>
+            </li>
+            <li>
+               Open <GraphQlbutton query={this.state.printquery} newSchema /> to view calculational details.
+            </li>
           </ul>
         </div>
         }
@@ -92,6 +132,7 @@ class SingleStructureView extends React.Component { // eslint-disable-line react
 }
 
 SingleStructureView.propTypes = {
+  selectedPublication: PropTypes.string.isRequired,
   selectedUUID: PropTypes.string.isRequired,
   selectedSystem: PropTypes.object.isRequired,
 };

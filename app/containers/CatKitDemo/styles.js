@@ -17,6 +17,9 @@ export const styles = (theme) => ({
   buttongrid: {
     padding: theme.spacing.unit,
   },
+  outboundLink: {
+    textDecoration: 'none',
+  },
   buttonLink: {
     textTransformation: 'none',
     textDecoration: 'none',
@@ -93,6 +96,10 @@ export const styles = (theme) => ({
     backgroundColor: '#ccc',
   },
   row: {
+  },
+  loginForm: {
+    margin: theme.spacing.unit,
+    padding: theme.spacing.unit,
   },
 
 });

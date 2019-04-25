@@ -5,16 +5,15 @@
  */
 
 import React from 'react';
-import PropTypes from 'prop-types';
 
 import { connect } from 'react-redux';
 import Script from 'react-load-script';
+import Helmet from 'react-helmet';
 import Slide from 'material-ui/transitions/Slide';
 
 
 import * as actions from './actions';
 import EnergiesPageInput from './Input';
-import EnergiesPageSimpleInput from './SimpleInput';
 import MatchingReactions from './MatchingReactions';
 import { ReactionStructures } from './ReactionStructures';
 
@@ -28,15 +27,17 @@ export class EnergiesPage extends React.Component { // eslint-disable-line react
         direction="left"
       >
         <div>
+          <Helmet>
+            <title>Surface Reactions</title>
+            <meta name="description" content="Search for first-principles reaction energies based on reactants, products, surface, or facet." />
+            <meta name="keywords" content="reaction energies, activations energies, catalysis, heterogeneous catalysis, surface structure, adsorbates, search" />
+          </Helmet>
           {/* Required for ChemDoodle later below */}
           <Script url="https://code.jquery.com/jquery-3.2.1.min.js" />
           <Script url="/static/ChemDoodleWeb.js" />
 
-          {this.props.simpleSearch ?
-            <EnergiesPageSimpleInput />
-            :
-            <EnergiesPageInput {...this.props} />
-        }
+          <EnergiesPageInput {...this.props} />
+
           <MatchingReactions />
           <ReactionStructures {...this.props} />
         </div>
@@ -46,11 +47,10 @@ export class EnergiesPage extends React.Component { // eslint-disable-line react
 }
 
 EnergiesPage.propTypes = {
-  simpleSearch: PropTypes.bool,
-
 };
 
 const mapStateToProps = (state) => ({
+  loading: state.get('energiesPageReducer').loading,
   selectedReaction: state.get('energiesPageReducer').selectedReaction,
   publication: state.get('energiesPageReducer').publication,
   matchingReactions: state.get('energiesPageReducer').matchingReactions,
@@ -63,6 +63,9 @@ const mapStateToProps = (state) => ({
 });
 
 const mapDispatchToProps = (dispatch) => ({
+  saveLoading: (loading) => {
+    dispatch(actions.saveLoading(loading));
+  },
   selectReaction: (reaction) => {
     dispatch(actions.selectReaction(reaction));
   },

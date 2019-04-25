@@ -124,7 +124,7 @@ export default function createRoutes(store) {
         importModules.catch(errorLoading);
       },
     }, {
-      path: '/publications',
+      path: '/publications(/:pubId)',
       name: 'publications',
       getComponent(location, cb) {
         import('components/Publications')
@@ -344,6 +344,30 @@ export default function createRoutes(store) {
       name: 'about',
       getComponent(location, cb) {
         import('components/About')
+          .then(loadModule(cb))
+          .catch(errorLoading);
+      },
+    }, {
+      path: '/privacyPolicy',
+      name: 'privacyPolicy',
+      getComponent(location, cb) {
+        import('components/PrivacyPolicy')
+          .then(loadModule(cb))
+          .catch(errorLoading);
+      },
+    }, {
+      path: '/developerGuide',
+      name: 'yourNextApp',
+      getComponent(location, cb) {
+        import('components/YourNextApp')
+          .then(loadModule(cb))
+          .catch(errorLoading);
+      },
+    }, {
+      path: '/catml',
+      name: 'catLearn',
+      getComponent(location, cb) {
+        import('components/CatLearn')
           .then(loadModule(cb))
           .catch(errorLoading);
       },

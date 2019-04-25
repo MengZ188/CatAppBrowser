@@ -10,14 +10,18 @@ import Grid from 'material-ui/Grid';
 import Paper from 'material-ui/Paper';
 import Button from 'material-ui/Button';
 import { withStyles } from 'material-ui/styles';
-
+import Switch from 'material-ui/Switch';
 import { MenuItem } from 'material-ui/Menu';
 import Select from 'material-ui/Select';
 import { LinearProgress } from 'material-ui/Progress';
-import { FormGroup, FormControl } from 'material-ui/Form';
+import { FormGroup, FormControl, FormControlLabel } from 'material-ui/Form';
 import { InputLabel } from 'material-ui/Input';
-import { MdChevronLeft, MdChevronRight, MdCheckCircle } from 'react-icons/lib/md';
+import { MdLoop, MdChevronLeft, MdChevronRight, MdCheckCircle } from 'react-icons/lib/md';
+import {
+  IoCube,
+} from 'react-icons/lib/io';
 import { FaList } from 'react-icons/lib/fa';
+import Tooltip from 'material-ui/Tooltip';
 
 import GeometryCanvasWithOptions from 'components/GeometryCanvasWithOptions';
 
@@ -29,7 +33,6 @@ import { styles } from './styles';
 
 const backendRoot = `${apiRoot}/apps/catKitDemo`;
 const siteUrl = `${backendRoot}/get_adsorption_sites`;
-const adsorbatesUrl = `${backendRoot}/place_adsorbates`;
 
 const defaultOccupation = 'empty';
 
@@ -44,6 +47,7 @@ const initialState = {
   activeImage: 0,
   siteNames: [],
   siteTypes: [],
+  checkedCatLearn: false,
 };
 
 const siteNames = [
@@ -60,14 +64,13 @@ class AdsorbateInput extends React.Component { // eslint-disable-line react/pref
     this.state = initialState;
     this.updateAdsorptionSites = this.updateAdsorptionSites.bind(this);
     this.handleChange = this.handleChange.bind(this);
-    this.handleAdsorptionChange = this.handleAdsorptionChange.bind(this);
-    this.placeAdsorbates = this.placeAdsorbates.bind(this);
     this.saveCalculation = this.saveCalculation.bind(this);
   }
 
   componentDidMount() {
     this.updateAdsorptionSites();
   }
+
   handlePageFlip(delta) {
     const n = this.props.images.length;
     this.setState({
@@ -75,6 +78,13 @@ class AdsorbateInput extends React.Component { // eslint-disable-line react/pref
       // javascript version of modulo that works for positive and negative
       // input.
     });
+  }
+
+  handleSwitch(name) {
+    return (event, checked) => {
+      this.setState({ [name]: checked });
+      this.updateAdsorptionSites({ callCatLearn: event.target.value });
+    };
   }
 
   resetPageFlip() {
@@ -92,10 +102,11 @@ class AdsorbateInput extends React.Component { // eslint-disable-line react/pref
       placeHolder: options.placeHolder || this.state.placeHolder,
       adsorbate: options.adsorbate || this.state.adsorbate,
       format: this.props.cookies.get('preferredFormat'),
+      callCatLearn: this.state.checkedCatLearn,
     };
     const params = { params: {
       bulk_cif: this.props.bulkCif,
-      bulkParams: _.omit(this.props.bulkParams, ['cif', 'input']),
+      bulkParams: _.omit(this.props.bulkParams, ['cif', 'input', 'wyckoff.cif']),
       slabParams: _.omit(this.props.slabParams, ['cif', 'input']),
       adsorbateParams,
     } };
@@ -110,6 +121,9 @@ class AdsorbateInput extends React.Component { // eslint-disable-line react/pref
         equations: response.data.equations,
         molecules: response.data.molecules,
         inputs: response.data.inputImages,
+        mean: response.data.mean,
+        uncertainty: response.data.uncertainty,
+        references: response.data.references,
       });
       this.props.saveAdsorptionSites(response.data.data);
 
@@ -138,20 +152,6 @@ class AdsorbateInput extends React.Component { // eslint-disable-line react/pref
     });
   }
 
-  placeAdsorbates() {
-    const params = { params: {
-      bulkParams: {
-        ...this.props.bulkParams,
-        elements: ['Pt'],
-      },
-      slabParams: this.props.slabParams,
-      siteOccupation: this.state.siteOccupation,
-    } };
-    axios.get(adsorbatesUrl, params).then((response) => {
-      this.props.receiveSlabCifs(response.data.images);
-    });
-  }
-
   handleChange(name) {
     return (event) => {
       this.setState({
@@ -167,18 +167,6 @@ class AdsorbateInput extends React.Component { // eslint-disable-line react/pref
     };
   }
 
-  handleAdsorptionChange(image, siteName, index) {
-    return (event) => {
-      if (typeof this.state.siteOccupation !== 'undefined') {
-        const siteOccupation = _.clone(this.state.siteOccupation);
-        siteOccupation[image][siteName][index] = event.target.value;
-        this.setState({
-          siteOccupation,
-        });
-        this.placeAdsorbates();
-      }
-    };
-  }
   saveCalculation() {
     this.props.saveCalculation({
       bulkParams: this.props.bulkParams,
@@ -221,11 +209,26 @@ class AdsorbateInput extends React.Component { // eslint-disable-line react/pref
                                     value={this.state.adsorbate}
                                     onChange={this.handleChange('adsorbate')}
                                   >
-                                    <MenuItem value="H">H</MenuItem>
                                     <MenuItem value="C">C</MenuItem>
+                                    <MenuItem value="CH">CH</MenuItem>
+                                    <MenuItem value="CHH">CHH</MenuItem>
+                                    <MenuItem value="CHHH">CHHH</MenuItem>
+                                    <MenuItem value="CO">CO</MenuItem>
+                                    <MenuItem value="COH">COH</MenuItem>
+                                    <MenuItem value="COO">COO</MenuItem>
+                                    <MenuItem value="H">H</MenuItem>
                                     <MenuItem value="N">N</MenuItem>
+                                    <MenuItem value="NH">NH</MenuItem>
+                                    <MenuItem value="NHH">NHH</MenuItem>
+                                    <MenuItem value="NO">NO</MenuItem>
                                     <MenuItem value="O">O</MenuItem>
+                                    <MenuItem value="OCHO">OCHO</MenuItem>
+                                    <MenuItem value="OH">OH</MenuItem>
+                                    <MenuItem value="OOH">OOH</MenuItem>
                                     <MenuItem value="S">S</MenuItem>
+                                    <MenuItem value="SH">SH</MenuItem>
+
+
                                   </Select>
                                 </FormControl>
 
@@ -273,6 +276,19 @@ class AdsorbateInput extends React.Component { // eslint-disable-line react/pref
                               </FormGroup>
                             </Grid>
 
+                            <Grid item>
+                              <Tooltip title="Powered by CatLearn">
+                                <FormControlLabel
+                                  control={
+                                    <Switch
+                                      checked={this.state.checkedCatLearn}
+                                      onChange={this.handleSwitch('checkedCatLearn')}
+                                    />
+                                  }
+                                  label="Estimate energies"
+                                />
+                              </Tooltip>
+                            </Grid>
 
                           </Grid>
                         </Grid>
@@ -281,6 +297,26 @@ class AdsorbateInput extends React.Component { // eslint-disable-line react/pref
                     {this.state.loading ? <LinearProgress /> : null }
                   </div>
               }
+
+          { _.isEmpty(this.props.adsorbateParams) || _.isEmpty(this.props.adsorbateParams.mean) ? null :
+          <Paper className={this.props.classes.paper}>
+            <Grid item>
+              <Grid container direction="row" justify="space-between">
+                <Grid item>
+                  <h4> Estimated adsorbate energy </h4>
+                  <div>
+                    {Number((this.props.adsorbateParams.mean[this.state.activeImage]).toFixed(2))}{' eV \xb1 '}{Number((this.props.adsorbateParams.uncertainty[this.state.activeImage]).toFixed(2))}{' eV'}
+                  </div>
+                </Grid>
+                <Grid item>
+                  <h4>versus</h4>
+                  <div>{this.props.adsorbateParams.references[this.state.activeImage]}</div>
+                </Grid>
+              </Grid>
+            </Grid>
+          </Paper>
+          }
+
           <Paper className={this.props.classes.paper}>
             <Grid container justify="center" direction="row">
               <Grid item >
@@ -309,6 +345,7 @@ class AdsorbateInput extends React.Component { // eslint-disable-line react/pref
                   altLabels={this.props.altLabels[0]}
                 />
               </Grid>
+
               <Grid item >
                 <Grid container direction="column" justify="center" className={this.props.classes.flipButton}>
                   <Grid item>
@@ -336,21 +373,22 @@ class AdsorbateInput extends React.Component { // eslint-disable-line react/pref
               </Grid>
               <Grid item>
                 <div>Start new structure from scratch:
-                    <Button onClick={this.props.stepperHandleReset} className={this.props.classes.button}> Start Over </Button> </div>
+                  <Button
+                    onClick={this.props.stepperHandleReset}
+                    raised
+                    className={this.props.classes.button}
+                  ><MdLoop />{'\u00A0'} Start Over </Button> </div>
               </Grid>
               <Grid item>
                   Find and start from an existing structure
                   <Link to="/prototypeSearch" className={this.props.classes.buttonLink}>
-                    <Button onClick={this.props.stepperHandleReset} className={this.props.classes.button}> Prototype Search </Button>
+                    <Button raised onClick={this.props.stepperHandleReset} className={this.props.classes.button}><IoCube /> {'\u00A0'} Prototype Search </Button>
                   </Link>
               </Grid>
             </Grid>
           </Grid>
         </Grid>
         }
-
-
-
 
         <Grid container justify="flex-end" direction="row">
           <Grid item>

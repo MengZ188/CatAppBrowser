@@ -1,4 +1,13 @@
 export const styles = (theme) => ({
+  structureInfo: {
+    maxWidth: '50%',
+  },
+  preview: {
+    paddingRight: theme.spacing.unit,
+  },
+  outboundLink: {
+    textDecoration: 'none',
+  },
   infoText: {
     margin: theme.spacing.unit * 3,
   },
@@ -6,12 +15,28 @@ export const styles = (theme) => ({
     margin: theme.spacing.unit * 3,
     textColor: '#BBBBBB',
   },
+  hintBlock: {
+    display: 'block',
+    [theme.breakpoints.down('sm')]: {
+      display: 'none',
+    },
+  },
+  searchField: {
+    width: '98%',
+    margin: theme.spacing.unit,
+  },
   textField: {
     width: '100%',
     margin: theme.spacing.unit,
   },
   button: {
     margin: theme.spacing.unit,
+    marginRight: theme.spacing.unit * 3,
+  },
+  buttonLink: {
+    textDecoration: 'none',
+    textColor: 'black',
+
   },
   subheader: {
     margin: theme.spacing.unit,

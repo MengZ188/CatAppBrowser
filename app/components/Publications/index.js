@@ -6,93 +6,58 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
-// import styled from 'styled-components';
+import { Link } from 'react-router';
+import { isMobile } from 'react-device-detect';
+import Helmet from 'react-helmet';
+import GeometryCanvasWithOptions from 'components/GeometryCanvasWithOptions';
+import Input from 'material-ui/Input';
 import { LinearProgress } from 'material-ui/Progress';
-import { MdAddCircleOutline, MdPanoramaFishEye, MdViewList } from 'react-icons/lib/md';
+import {
+  MdChevronRight,
+  MdChevronLeft,
+  MdFilterList,
+  MdViewList } from 'react-icons/lib/md';
+import {
+  IoDocument,
+} from 'react-icons/lib/io';
+import {
+  TiDocumentAdd,
+} from 'react-icons/lib/ti';
 import _ from 'lodash';
 import ReactGA from 'react-ga';
 import Script from 'react-load-script';
+import Grid from 'material-ui/Grid';
 import Button from 'material-ui/Button';
 import Paper from 'material-ui/Paper';
 import Slide from 'material-ui/transitions/Slide';
 import { FaExternalLink } from 'react-icons/lib/fa';
 
 import { withStyles } from 'material-ui/styles';
+import {
+  FacebookShareButton,
+  FacebookIcon,
+  LinkedinShareButton,
+  LinkedinIcon,
+  EmailShareButton,
+  EmailIcon,
+  WhatsappShareButton,
+  WhatsappIcon,
+  TwitterShareButton,
+  TwitterIcon,
+} from 'react-share';
+
 
 import axios from 'axios';
 import { newGraphQLRoot } from 'utils/constants';
+import { prettyPrintReference, plainPrintReference, withCommas } from 'utils/functions';
 
+import PublicationView from 'components/PublicationView';
 import PublicationSystems from './publicationSystems';
 // import PublicationReactions from './publicationReactions';
 
-const styles = (theme) => ({
-  publicationAction: {
-    margin: theme.spacing.unit,
-    height: 6,
-    backgroundColor: _.get(theme, 'palette.sandhill.50'),
-    '&:hover': {
-      backgroundColor: _.get(theme, 'palette.sandhill.300'),
-    },
-  },
-  outboundLink: {
-    textDecoration: 'none',
-  },
-  publicationEntry: {
-    textAlign: 'left',
-    [theme.breakpoints.down('sm')]: {
-      fontSize: '14px',
-    },
-  },
-  publicationYear: {
-    textAlign: 'left',
-    [theme.breakpoints.down('sm')]: {
-      textAlign: 'center',
-    },
-  },
-  paper: {
-    padding: theme.spacing.unit,
-    marginBottom: theme.spacing.unit,
-    marginTop: theme.spacing.unit,
-  },
-});
+import { styles } from './styles';
 
-const restoreSC = (str) => {
-  let res = str;
-  if (str === null || typeof str === 'undefined') {
-    return '';
-  }
-  if (typeof str === 'object') {
-    res = str.join(' ');
-  }
-  return res
-    .replace('{\\o}', 'ø')
-    .replace('\\o', 'ø')
-    .replace('{"A}', 'Ä')
-    .replace('{"U}', 'Ü')
-    .replace('{"O}', 'Ö')
-    .replace('{"a}', 'ä')
-    .replace('{"u}', 'ü')
-    .replace('{"o}', 'ö')
-    .replace('{\\ss}', 'ß')
-    .replace('--', '–')
-    .replace('Norskov', 'Nørskov')
-
-    .replace('{', '')
-    .replace('}', '');
-};
-
-const prettyPrintReference = (ref) =>
-  // TODO Integrate with crossref.org api
-  // if (false && typeof ref.doi === 'undefined' || ref.doi === '') {
-   (<span>
-     {(ref.title !== '' && ref.title !== null && typeof ref.title !== 'undefined') ? <strong>{`"${restoreSC(ref.title)}"`}. </strong> : null }
-     {(typeof ref.authors !== 'undefined' && ref.authors !== '' && ref.authors !== null) ? <span>{restoreSC(typeof ref.authors === 'string' ? JSON.parse(ref.authors).join('; ') : ref.authors.join('; '))}. </span> : null }
-     {(ref.journal !== '' && typeof ref.journal !== 'undefined' && ref.journal !== null) ? <i>{ref.journal}, </i> : null }
-     {(ref.volume !== '' && typeof ref.volume !== 'undefined' && ref.volume !== null) ? <span>{ref.volume} </span> : null}
-     {(ref.year !== '' && typeof ref.year !== 'undefined' && ref.year !== null) ? <span>({ref.year}): </span> : null}
-     {(ref.pages !== '' && typeof ref.pages !== 'undefined' && ref.pages !== null) ? <span>{ref.pages}. </span> : null}
-   </span>);
-
+const shareIconSize = 28;
 
 class Publications extends React.Component { // eslint-disable-line react/prefer-stateless-function
   constructor(props) {
@@ -100,6 +65,8 @@ class Publications extends React.Component { // eslint-disable-line react/prefer
     this.state = {
       years: [],
       references: {},
+      previewCifs: {},
+      totalCounts: {},
       dois: {},
       titles: {},
       pubIds: {},
@@ -108,8 +75,13 @@ class Publications extends React.Component { // eslint-disable-line react/prefer
       systems: [],
       reactionEnergies: [],
       publicationQuery: '',
+      pubId: _.get(props, 'routeParams.pubId', ''),
+      reference: {},
+      publicationFilter: '',
     };
     this.clickPublication = this.clickPublication.bind(this);
+    this.loadPreviewCif = this.loadPreviewCif.bind(this);
+    this.backToList = this.backToList.bind(this);
   }
   componentDidMount() {
     const yearQuery = '{publications { edges { node { year } } }}';
@@ -123,19 +95,17 @@ class Publications extends React.Component { // eslint-disable-line react/prefer
           years,
         });
         years.map((year) => {
-          const query = `{publications (year: ${year}) { edges { node {  doi title year authors journal pages pubId  } } }}`;
+          const query = `{publications (year: ${year}, order: "-stime") { edges { node {  doi title year authors journal volume number pages pubId pubtextsearch  } } }}`;
           return axios.post(newGraphQLRoot, {
             query,
           })
             .then((yearResponse) => {
               let references = yearResponse.data.data.publications.edges
-                .map((n) => (n.node));
+                  .map((n) => (n.node));
               references = [...new Set(references)];
               const dois = yearResponse.data.data.publications.edges.map((n) => (n.node.doi));
-
               const titles = yearResponse.data.data.publications.edges.map((n) => (n.node.title));
               const pubIds = yearResponse.data.data.publications.edges.map((n) => (n.node.pubId));
-
 
               const allReferences = this.state.references;
               const allDois = this.state.dois;
@@ -151,159 +121,313 @@ class Publications extends React.Component { // eslint-disable-line react/prefer
                 references: allReferences,
                 dois: allDois,
                 titles: allTitles,
+                pubIds: allPubIds,
               });
             })
             .catch(() => {
-            })
-          ;
+            });
         });
       });
   }
-  clickPublication(event, target, key) {
-    const splitKey = key.split('_');
-    const year = parseInt(splitKey[1], 10);
-    const count = parseInt(splitKey[2], 10);
-    const title = (this.state.references[year][count]).title;
-    /* reference = reference.split('"').join('\\"'); */
+  backToList() {
     this.setState({
-      loading: true,
-    });
-    if (this.state.openedPublication === key) {
-      this.setState({
-        openedPublication: null,
-      });
-    } else {
-      this.setState({
-        openedPublication: key,
-      });
-    }
-    this.setState({
+      pubId: '',
       systems: [],
       reactionEnergies: [],
     });
-    const query = `{
-  publications(title: "${title}") {
-    edges {
-      node {
-        title
-        authors
-        doi
-        journal
-        pages
-        year
-        systems {
-          DftCode
-          DftFunctional
-          energy
-          uniqueId
-          Cifdata
-          Formula
-          Facet
-          natoms
-        }
+    this.props.router.push('/publications');
+  }
+  clickPublication(event, target, key, pubId, reference) {
+    this.setState({
+      systems: [],
+      reactionEnergies: [],
+      pubId,
+      reference,
+    });
+    this.props.router.push(`/publications/${pubId}`);
+  }
+
+  handleChange(name) {
+    return (event) => {
+      this.setState({
+        [name]: event.target.value,
+      });
+    };
+  }
+
+  loadPreviewCif(pubId) {
+    const cifQuery = `{reactions(pubId:"${pubId}", first: 1, order:"reactionEnergy") {
+    totalCount
+  edges {
+    node {
+      id
+      reactionEnergy
+      systems {
+        energy
+        Cifdata
       }
     }
   }
-}
-`;
-    axios.post(newGraphQLRoot, { query })
+}}`;
+    const previewCifs = this.state.previewCifs;
+    const totalCounts = this.state.totalCounts;
+    axios.post(newGraphQLRoot, { query: cifQuery })
       .then((response) => {
-        const publication = [_.pick(response.data.data.publications.edges[0].node, ['title', 'year', 'doi', 'authors', 'journal', 'pages'])];
-        if (response.data.data.publications.edges[0].node.systems.length > 0) {
-          this.setState({
-            systems: response.data.data.publications.edges[0].node.systems.map((system) => ({
-              ...system,
-              publication,
-            })),
-            loading: false,
-            publicationQuery: query,
-          });
-        }
+        totalCounts[pubId] = response.data.data.reactions.totalCount;
+        previewCifs[pubId] = _.sortBy(
+          response.data.data.reactions.edges[0].node.systems,
+          'energy')[0];
+        this.setState({
+          previewCifs,
+          totalCounts,
+        });
       });
   }
 
   render() {
     return (
       <div>
+        <Helmet>
+          <title>Publications and Datasets</title>
+          <meta name="description" content="List of Publication and Datasets by year indexed on Catalysis-Hub.Org" />
+          <meta name="keywords" content="catalysis, catalyst, chemistry, activation energy, adsorption, datasets, calculations, reaction energies, publications, csv, json, ASE atoms objects, ASE db, cathub, catkit, postgresql" />
+        </Helmet>
+        <Link
+          className={this.props.classes.buttonLink}
+          to={'/upload'}
+        >
+          <Button
+            fab
+            className={this.props.classes.fab}
+            raised
+            color="primary"
+          >
+            <TiDocumentAdd />
+
+          </Button>
+        </Link>
         <Script url="https://code.jquery.com/jquery-3.2.1.min.js" />
         <Script url="/static/ChemDoodleWeb.js" />
-        <h1>Publications/Datasets</h1>
+        {!_.isEmpty(this.state.pubId) ? <div>
+          <Grid container direction="row" justify="space-between">
+            <Grid item>
+              <Button
+                onClick={() => {
+                  this.backToList();
+                }}
+              >
+                <MdChevronLeft />
+                Back to Publication List</Button>
+            </Grid>
+            <Grid>
+              <Grid container direction="row" className={this.props.classes.shareButtons}>
+                <Grid item>
+                  <EmailShareButton
+                    subject={this.state.reference.title}
+                    body={`${window.location.href} Reaction energies and structures for ${plainPrintReference(this.state.reference)}`}
+                    url={window.location.href}
+                  ><EmailIcon size={shareIconSize} round /></EmailShareButton>
+                </Grid>
+                <Grid item>
+                  <LinkedinShareButton
+                    title={this.state.reference.title}
+                    description={`${plainPrintReference(this.state.reference)}`}
+                    url={window.location.href}
+                  >
+                    <LinkedinIcon size={shareIconSize} round />
+                  </LinkedinShareButton>
+                </Grid>
+                <Grid item>
+                  <TwitterShareButton
+                    url={window.location.href}
+                    title={`Reaction energies and structures for ${plainPrintReference(this.state.reference)} `}
+                    hashtags={[this.state.reference.pubId]}
+                  > <TwitterIcon size={shareIconSize} round /> </TwitterShareButton>
+                </Grid>
+                <Grid item>
+                  <FacebookShareButton
+                    url={window.location.href}
+                    quote={`${window.location.href} Reaction energies and structures for ${plainPrintReference(this.state.reference)} `}
+                  >
+                    <FacebookIcon size={shareIconSize} round />
+                  </FacebookShareButton>
+                </Grid>
+                <Grid item>
+                  <WhatsappShareButton
+                    url={window.location.href}
+                    title={`Reaction energies and structures for ${plainPrintReference(this.state.reference)} `}
 
-        {this.state.references === {} ? <LinearProgress color="primary" /> : null }
-        {this.state.years.map((year, i) => (
-          <Slide
-            key={`slide_${i}`}
-            in
-            mountOnEnter
-            unmountOnExit
-            timeout={200 * i}
-            direction="left"
-          >
-            <div>
-              <Paper key={`div_year_${i}`} className={this.props.classes.paper}>
-                {(this.state.references[year] || []).length === 0 ? null :
-                <h2 key={`pyear_${year}`} className={this.props.classes.publicationYear}>{year}</h2>
-                  }
-                {(this.state.references[year] || [])
-                    .map((reference, j) => {
-                      if (this.state.titles[year][j] !== null) {
-                        return (
+                  ><WhatsappIcon size={shareIconSize} round /></WhatsappShareButton>
+                </Grid>
+              </Grid>
 
-                          <div key={`pli_${i}_${j}`} className={this.props.classes.publicationEntry}>
-                            { this.state.openedPublication !== `elem_${year}_${j}` ?
-                              <MdAddCircleOutline onClick={(target, event) => this.clickPublication(event, target, `elem_${year}_${j}`)} size={28} className={this.props.classes.publicationEntry} />
-                            :
-                              <MdPanoramaFishEye size={28} className={this.props.classes.publicationEntry} />
+            </Grid>
+          </Grid>
+          <PublicationView pubId={this.state.pubId} />
+        </div>
+            : <div>
+
+              <Grid
+                container direction={isMobile ? 'column' : 'row'}
+                justify="space-between"
+              >
+                <Grid item>
+                  <h1>Publications and Datasets</h1>
+                </Grid>
+                <Grid item>
+                  <Grid container direction="column" justify="flex-end">
+                    <Grid item>
+
+                      <Link
+                        to={'/profile'}
+                        className={this.props.classes.outboundLink}
+                      >
+                        <Button
+                          raised
+                          className={this.props.classes.publicationAction}
+                        >
+                      Contributors
+                    </Button>
+                      </Link>
+                    </Grid>
+                  </Grid>
+                </Grid>
+                <Grid item>
+                  <Input
+                    className={this.props.classes.filterInput}
+                    value={this.state.publicationFilter}
+                    onChange={this.handleChange('publicationFilter')}
+                    endAdornment={<MdFilterList />}
+                  />
+                </Grid>
+              </Grid>
+
+              {this.state.references === {} ? <LinearProgress color="primary" /> : null }
+              {this.state.years.map((year, i) => (
+                <Slide
+                  key={`slide_${i}`}
+                  in
+                  mountOnEnter
+                  unmountOnExit
+                  timeout={200 * i}
+                  direction="left"
+                  className={this.props.classes.yearPaper}
+                >
+                  <div>
+                    <Paper key={`div_year_${i}`} className={[this.props.classes.paper, this.props.classes.yearPaper].join(' ')}>
+                      {(this.state.references[year] || []).length === 0 ? null :
+                      <h2 key={`pyear_${year}`} className={this.props.classes.publicationYear}>{year}</h2>
+                      }
+                      {(this.state.references[year] || []).map((reference, j) => {
+                        const notFound = this.state.publicationFilter.trim().split(' ').map((term) => {
+                          if ((reference.pubtextsearch || '').toLowerCase().indexOf(term.toLowerCase()) === -1) {
+                            return false;
                           }
-                            <span> &nbsp;&nbsp;&nbsp; </span>
-                            <span className={this.props.classes.publicationEntry}>
-                              {prettyPrintReference(reference)}
+                          return true;
+                        });
+                        if (!notFound.every((x) => x)) {
+                          return null;
+                        }
+                        if (this.state.titles[year][j] !== null) {
+                          return (
 
-                            </span>
-                            <Button onClick={(target, event) => this.clickPublication(event, target, `elem_${year}_${j}`)} className={this.props.classes.publicationAction}>
-                              <MdViewList /> {'\u00A0\u00A0'}Load Data
-                          </Button>
-                            {(this.state.dois[year][j] === null
-                            || typeof this.state.dois[year][j] === 'undefined'
-                            || this.state.dois[year][j] === ''
-                          ) ? null :
-                          <ReactGA.OutboundLink
-                            eventLabel={`http://dx.doi.org/${this.state.dois[year][j]}`}
-                            to={`http://dx.doi.org/${this.state.dois[year][j]}`}
-                            target="_blank"
-                            className={this.props.classes.outboundLink}
-                          >
-                            <Button className={this.props.classes.publicationAction}>
-                              <FaExternalLink />{'\u00A0\u00A0'} DOI: {this.state.dois[year][j]}.
-                                </Button>
-                          </ReactGA.OutboundLink>
-                          }
+                            <div key={`pli_${i}_${j}`} className={this.props.classes.publicationEntry}>
+                              <Paper className={this.props.classes.smallPaper}>
+                                <span className={this.props.classes.publicationEntry}>
+                                  <IoDocument size={24} /> {prettyPrintReference(reference)} {`#${reference.pubId}.`}
 
-                            <div>
-                              { this.state.openedPublication !== `elem_${year}_${j}` ? null :
-                              <span>
-                                {this.state.loading === true ? <LinearProgress color="primary" /> : null}
+                                </span>
+                                <Grid container direction={isMobile ? 'column' : 'row'} justify="space-between" className={this.props.classes.publicationActions}>
+                                  {year > 2014 ?
+                                    <Grid item>
+                                      {typeof this.state.previewCifs[reference.pubId] === 'undefined' ?
+                                        <Button
+                                          onClick={() => {
+                                            this.loadPreviewCif(reference.pubId);
+                                          }}
+                                          className={this.props.classes.publicationAction}
+                                          raised
+                                        >
+                                          Preview
+                                        </Button>
+                                          :
+                                        <GeometryCanvasWithOptions
+                                          key={`mc_${reference.pubId}`}
+                                          cifdata={this.state.previewCifs[reference.pubId].Cifdata}
+                                          unique_id={`molecule_${reference.pubId}`}
+                                          id={`molecule_${reference.pubId}`}
+                                          height={300}
+                                          width={300}
+                                          showButtons={false}
+                                          x={1} y={1} z={2}
+                                        />
+                                      }
+                                    </Grid>
+                                     :
+                                    <Grid item>
+                                      <Button className={this.props.classes.publicationOffAction}>
+                                        Geometries not available
+                                      </Button>
+                                    </Grid>
+                                  }
+                                  <Grid item>
+                                    <Button
+                                      raised
+                                      onClick={(target, event) => this.clickPublication(event, target, `elem_${year}_${j}`, this.state.pubIds[year][j], reference)} className={this.props.classes.publicationAction}
+                                    >
+                                      <MdViewList /> {'\u00A0\u00A0'}Checkout {
+                                          (withCommas(this.state.totalCounts[reference.pubId] || ''))
+                                      } Reactions {'\u00A0\u00A0'} <MdChevronRight />
+                                    </Button>
+                                    {(this.state.dois[year][j] === null
+                                          || typeof this.state.dois[year][j] === 'undefined'
+                                          || this.state.dois[year][j] === ''
+                                        ) ? null :
+                                        <ReactGA.OutboundLink
+                                          eventLabel={`http://dx.doi.org/${this.state.dois[year][j]}`}
+                                          to={`http://dx.doi.org/${this.state.dois[year][j]}`}
+                                          target="_blank"
+                                          className={this.props.classes.outboundLink}
+                                        >
+                                          <Button
+                                            raised
+                                            className={this.props.classes.publicationAction}
+                                          >
+                                            <FaExternalLink />{'\u00A0\u00A0'} DOI: {this.state.dois[year][j]}.
+                                              </Button>
+                                        </ReactGA.OutboundLink>
+                                        }
+                                  </Grid>
+                                </Grid>
 
-                                {/*
+                                <div>
+                                  { this.state.openedPublication !== `elem_${year}_${j}` ? null :
+                                  <span>
+                                    {this.state.loading === true ? <LinearProgress color="primary" /> : null}
+
+                                    {/*
                         true || this.state.reactionEnergies.length === 0 ? null :
                         <PublicationReactions {...this.state} />
                         */}
-                                {this.state.systems.length === 0 ? null :
-                                <PublicationSystems {...this.state} />
+                                    {this.state.systems.length === 0 ? null :
+                                    <PublicationSystems {...this.state} />
                         }
-                              </span>
-                            }
+                                  </span>
+                                      }
+                                </div>
+                                <br />
+                              </Paper>
                             </div>
-                            <br />
-                          </div>
-                        );
-                      }
-                      return null;
-                    })}
-              </Paper>
+                          );
+                        }
+                        return null;
+                      })}
+                    </Paper>
+                  </div>
+                </Slide>
+              ))
+              }
             </div>
-          </Slide>
-          ))
         }
       </div>
     );
@@ -312,7 +436,9 @@ class Publications extends React.Component { // eslint-disable-line react/prefer
 
 Publications.propTypes = {
   classes: PropTypes.object,
-
+  router: PropTypes.shape({
+    push: PropTypes.func.isRequired,
+  }).isRequired,
 };
 
 export default withStyles(styles, { withTheme: true })(Publications);

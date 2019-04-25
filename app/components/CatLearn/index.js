@@ -7,6 +7,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import cachios from 'cachios';
+import Helmet from 'react-helmet';
 
 import { MenuItem } from 'material-ui/Menu';
 import { InputLabel } from 'material-ui/Input';
@@ -22,6 +23,7 @@ import Grid from 'material-ui/Grid';
 import { withStyles } from 'material-ui/styles';
 
 import { apiRoot } from 'utils/constants';
+import { styles } from './styles';
 const appUrl = `${apiRoot}apps/catlearn/`;
 
 const supportAtoms = [
@@ -38,12 +40,6 @@ const items = [];
 for (let i = 0; i < supportLength; i += 1) {
   items.push(<MenuItem value={supportAtoms[i]}>{supportAtoms[i]}</MenuItem>);
 }
-
-const styles = (theme) => ({
-  infoText: {
-    margin: theme.spacing.unit * 3,
-  },
-});
 
 
 class YourNextApp extends React.Component { // eslint-disable-line react/prefer-stateless-function
@@ -98,6 +94,10 @@ class YourNextApp extends React.Component { // eslint-disable-line react/prefer-
   render() {
     return (
       <div>
+        <Helmet>
+          <title>CatLearn</title>
+          <meta name="keywords" content="machine learning, first-principles, gaussian processes, gp, molecular, slab geometry, adsorption energies" />
+        </Helmet>
         <Grid container direction="row" justify="space-between">
           <Grid item>
             <h2>CatLearn</h2>
